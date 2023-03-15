@@ -47,6 +47,10 @@ export async function createEmployee(employee) {
     })
 }
 
+export async function deleteEmployee(id) {
+    await deleteDoc(doc(db, "employees", id));
+}
+
 export async function createOfficeLocation(location) {
     const dbRef = collection(db, "officeLocation");
     await addDoc(dbRef, location).then(docRef => {

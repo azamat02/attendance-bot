@@ -13,11 +13,12 @@ const markLeaving = userGen.MarkLeaving()
 const startScreen = adminGen.StartScreen()
 const setOfficeLocation = adminGen.SetOfficeLocation()
 const addEmployee = adminGen.AddEmployee()
+const showEmployees = adminGen.ShowEmployees()
 const showAdmins = adminGen.ShowAdmins()
 const addAdmin = adminGen.AddAdmin()
 
 const userScenes = [userButtons, markArrival, markLeaving]
-const adminScenes = [startScreen, showAdmins, addAdmin, addEmployee, setOfficeLocation]
+const adminScenes = [startScreen, showAdmins, addAdmin, addEmployee, setOfficeLocation, showEmployees]
 
 const stages = new Scenes.Stage([...adminScenes, ...userScenes])
 
@@ -51,6 +52,36 @@ bot.start(async (ctx) => {
     } else {
         await ctx.replyWithHTML(`Добро пожаловать`)
         await ctx.scene.enter("userButtons")
+    }
+})
+
+bot.hears("Список администраторов", async (ctx) => {
+    if (ctx.session.isAdmin) {
+        await ctx.scene.enter("showAdmins")
+    }
+})
+
+bot.hears("Добавить админа", async (ctx) => {
+    if (ctx.session.isAdmin) {
+        await ctx.scene.enter("addAdmin")
+    }
+})
+
+bot.hears("Список сотрудников", async (ctx) => {
+    if (ctx.session.isAdmin) {
+        await ctx.scene.enter("showEmployees")
+    }
+})
+
+bot.hears("Добавить сотрудника", async (ctx) => {
+    if (ctx.session.isAdmin) {
+        await ctx.scene.enter("addEmployee")
+    }
+})
+
+bot.hears("Определить зону офиса", async (ctx) => {
+    if (ctx.session.isAdmin) {
+        await ctx.scene.enter("setOfficeLocation")
     }
 })
 

@@ -3,22 +3,27 @@ import {
     createAdmin,
     createEmployee,
     createOfficeLocation,
-    deleteAdmin,
+    deleteAdmin, deleteEmployee,
     getAdmins, getAttendance,
     getEmployees,
     getOfficeLocation,
     markAttendance, markLeavingAttendance
 } from "./store/functions.js";
 
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
 function isMarkedToday(attendance, from) {
     let res = {
         isMarkedToday: false,
         attendance: []
     }
+    const todayDate = new Date().toLocaleDateString()
     attendance.forEach(attendance => {
         if (from.username === attendance.user.username && +from.id === +attendance.user.id) {
-            let comingTime = new Date(+attendance.comingTime.seconds * 1000)
-            if (comingTime.getDate() === new Date().getDate()) {
+            let comingTime = new Date(+attendance.comingTime.seconds * 1000).toLocaleDateString()
+            if (comingTime === todayDate) {
                 res.isMarkedToday = true
                 res.attendance = attendance
             }
@@ -43,6 +48,21 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
 
 function deg2rad(deg) {
     return deg * (Math.PI/180)
+}
+
+function getWeek() {
+    let curr = new Date; // get current date
+    let first = curr.getDate() - curr.getDay() + 1; // First day is the day of the month - the day of the week
+
+    let firstWeekDayDate = new Date(curr.setDate(first))
+    let workingWeek = [firstWeekDayDate]
+
+    for (let i = 1; i<5; i++) {
+        let weekDayDate = new Date(curr.setDate(first+i))
+        workingWeek.push(weekDayDate)
+    }
+
+    return workingWeek
 }
 
 export class UserScenesGenerator{
@@ -85,9 +105,11 @@ export class UserScenesGenerator{
                 }
                 if (isMarked) {
                     await ctx.reply("Вы уже отметились ✅")
+                    await ctx.scene.enter("userButtons")
                 }
             } else {
                 await ctx.reply("Вы не являетесь сотрудником Сапа")
+                await ctx.scene.leave()
             }
         })
 
@@ -103,9 +125,11 @@ export class UserScenesGenerator{
                     comingTime: new Date()
                 })
                 await ctx.reply("Вы отметились ✅")
+                await ctx.scene.enter("userButtons")
+
             } else {
                 await ctx.reply("Вы далеко от офиса, повторите попытку когда будете в офисе 📍")
-                await ctx.scene.enter("check")
+                await ctx.scene.enter("userButtons")
             }
         })
 
@@ -131,7 +155,7 @@ export class UserScenesGenerator{
 
             if (isEmployee) {
                 if (!res.isMarkedToday) {
-                    ctx.scene.leave()
+                    await ctx.reply("Вы не отмечались сегодня, сперва отметьте прибытие. ⚠️")
                 }
                 else if (res.attendance?.leavingTime) {
                     await ctx.reply("Вы уже отметили уход, спасибо, удачного Вам дня ✅")
@@ -146,6 +170,7 @@ export class UserScenesGenerator{
             } else {
                 await ctx.reply("Вы не являетесь сотрудником Сапа")
             }
+            await ctx.scene.enter("userButtons")
         })
 
         markLeaving.leave()
@@ -170,23 +195,6 @@ export class AdminScenesGenerator{
                 "Добавить сотрудника",
             ])
             await ctx.reply("Выберите действие: ", keyboard)
-        })
-
-
-        startScreen.hears("Список администраторов", async (ctx) => {
-            await ctx.scene.enter("showAdmins")
-        })
-
-        startScreen.hears("Добавить админа", async (ctx) => {
-            await ctx.scene.enter("addAdmin")
-        })
-
-        startScreen.hears("Добавить сотрудника", async (ctx) => {
-            await ctx.scene.enter("addEmployee")
-        })
-
-        startScreen.hears("Определить зону офиса", async (ctx) => {
-            await ctx.scene.enter("setOfficeLocation")
         })
 
         return startScreen
@@ -231,18 +239,79 @@ export class AdminScenesGenerator{
 
     ShowEmployees() {
         const showEmployees = new Scenes.BaseScene("showEmployees")
+
         showEmployees.enter(async (ctx) => {
-            await ctx.replyWithPhoto({source: "./assets/example2.png"}, Markup.removeKeyboard())
-            await ctx.reply("Введите <b>username</b> пользователя (без @): ", {parse_mode: "HTML"})
+            const employees = await getEmployees()
+            employees.forEach((employee) => {
+                ctx.reply(employee.username, Markup.inlineKeyboard([
+                    [Markup.button.callback("Посещаемость сотрудника за сегодня", JSON.stringify({action: "statsForToday", empId: employee.id}))],
+                    [Markup.button.callback("Посещаемость сотрудника за неделю", JSON.stringify({action: "statsForWeek", empId: employee.id}))],
+                    [Markup.button.callback("Посещаемость сотрудника за месяц", JSON.stringify({action: "statsForMonth", empId: employee.id}))],
+                    [Markup.button.callback("Удалить сотрудника ❌", JSON.stringify({action: "delete", empId: employee.id}))]
+                ]))
+            })
         })
-        showEmployees.on("text", async (ctx) => {
-            let employee = {
-                username: ctx.message.text
+
+        showEmployees.on("callback_query", async (ctx) => {
+            const data = JSON.parse(ctx.callbackQuery.data)
+            if (data.action === "delete") {
+                await deleteEmployee(data.id)
+                await ctx.reply("Сотрудник удален ✅")
+                await ctx.scene.enter("startScreen")
             }
-            await createEmployee(employee)
-            await ctx.reply("Сотрудник добавлен ✅")
-            await ctx.scene.enter("startScreen")
+            if (data.action === "statsForToday") {
+                const employee = (await getEmployees()).find((employee => employee.id === data.empId))
+                const attendanceList = await getAttendance()
+                const todayDate = new Date().toLocaleDateString()
+                const todayAttendance = attendanceList.find((attendance) => {
+                    const comingDay = new Date(+attendance.comingTime.seconds * 1000).toLocaleDateString()
+                    if (attendance.user.username === employee.username && comingDay === todayDate) {
+                        return attendance
+                    }
+                })
+                if (todayAttendance) {
+                    const comingTime = new Date((+todayAttendance.comingTime.seconds * 1000)).toLocaleTimeString();
+                    const leaveTime = todayAttendance.leavingTime ? new Date((+todayAttendance.leavingTime.seconds * 1000)).toLocaleTimeString() : '➖';
+
+                    ctx.replyWithHTML(`<b>Сотрудник:</b> ${todayAttendance.user.username}\n\nПришел: ${comingTime}\n\nУшел: ${leaveTime}`)
+                } else {
+                    ctx.replyWithHTML(`<b>Сотрудник:</b> ${employee.username}\n\nПришел: ➖\n\nУшел: ➖`)
+                }
+            }
+            if (data.action === "statsForWeek") {
+                const employee = (await getEmployees()).find((employee => employee.id === data.empId))
+                const weekDays = getWeek()
+                const attendanceList = (await getAttendance()).filter((attendance) => {
+                    const comingTime = new Date((+attendance.comingTime.seconds * 1000)).toLocaleDateString();
+                    if (attendance.user.username === employee.username && weekDays.map(day => day.toLocaleDateString()).indexOf(comingTime) !== -1) {
+                        return attendance
+                    }
+                })
+                let res = `<pre>`
+                res += `-------------------------------\n`
+                res += `| День недели | Пришел | Ушел |\n`
+                res += `-------------------------------\n`
+
+                weekDays.forEach((day) => {
+                    let options = { weekday: 'short', day: 'numeric', month: 'numeric' }
+                    let dayHTML = capitalizeFirstLetter(day.toLocaleDateString("ru-RU", options).toString())
+                    const dayAttendance = attendanceList.find((attendance) => {
+                        let time = new Date(+attendance.comingTime.seconds * 1000).toLocaleDateString()
+                        if(time === day.toLocaleDateString()) {
+                            return attendance
+                        }
+                    })
+                    const comingTime = dayAttendance?.comingTime ? new Date((+dayAttendance?.comingTime?.seconds * 1000)).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
+                    const leaveTime = dayAttendance?.leavingTime ? new Date((+dayAttendance?.leavingTime?.seconds * 1000)).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
+
+                    res += `| ${dayHTML}   | ${comingTime} | ${leaveTime} |\n`
+                    res += `-------------------------------\n`
+                })
+                res += `</pre>`
+                await ctx.replyWithHTML(res)
+            }
         })
+
         return showEmployees
     }
 
