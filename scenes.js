@@ -3,11 +3,14 @@ import {
     createAdmin,
     createEmployee,
     createOfficeLocation,
-    deleteAdmin, deleteEmployee,
-    getAdmins, getAttendance,
+    deleteAdmin,
+    deleteEmployee,
+    getAdmins,
+    getAttendance,
     getEmployees,
     getOfficeLocation,
-    markAttendance, markLeavingAttendance
+    markAttendance,
+    markLeavingAttendance
 } from "./store/functions.js";
 
 function capitalizeFirstLetter(string) {
@@ -63,6 +66,116 @@ function getWeek() {
     }
 
     return workingWeek
+}
+
+function getDaysInMonth(month, year) {
+    let date = new Date(year, month, 1);
+    let days = [];
+    while (date.getMonth() === month) {
+        days.push(new Date(date));
+        date.setDate(date.getDate() + 1);
+    }
+    return days;
+}
+
+function convertTimeStampDate(seconds) {
+    return new Date(+seconds * 1000)
+}
+
+function getStatsForToday(employee, totalAttendanceList) {
+    const todayDate = new Date().toLocaleDateString()
+    const todayAttendance = totalAttendanceList.find((attendance) => {
+        const comingDay = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString()
+        if (attendance.user.username === employee.username && comingDay === todayDate) {
+            return attendance
+        }
+    })
+    let result = {
+        comingTime: "",
+        leaveTime: "",
+    }
+    if (todayAttendance) {
+        const comingTime = new Date((+todayAttendance.comingTime.seconds * 1000)).toLocaleTimeString();
+        const leaveTime = todayAttendance.leavingTime ? new Date((+todayAttendance.leavingTime.seconds * 1000)).toLocaleTimeString() : '➖';
+        result.comingTime = comingTime
+        result.leaveTime = leaveTime
+    } else {
+        result.comingTime = "➖"
+        result.leaveTime = "➖"
+    }
+    return result
+}
+
+function getStatsForWeek(employee, totalAttendanceList) {
+    const weekDays = getWeek()
+    const isWeekDay = (comingTime) => {
+        return weekDays.map(day => day.toLocaleDateString()).indexOf(comingTime) !== -1
+    }
+    const userAttendanceList = totalAttendanceList.filter((attendance) => {
+        const comingTime = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString();
+        if (attendance.user.username === employee.username && isWeekDay(comingTime)) {
+            return attendance
+        }
+    })
+    let res = `<pre>`
+    res += `-------------------------------\n`
+    res += `| День недели | Пришел | Ушел |\n`
+    res += `-------------------------------\n`
+
+    weekDays.forEach((day) => {
+        let options = { weekday: 'short', day: 'numeric', month: 'numeric' }
+        let dayHTML = capitalizeFirstLetter(day.toLocaleDateString("ru-RU", options).toString())
+
+        const dayAttendance = userAttendanceList.find((attendance) => {
+            let time = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString()
+            if(time === day.toLocaleDateString()) {
+                return attendance
+            }
+        })
+        const comingTime = dayAttendance?.comingTime ? convertTimeStampDate(dayAttendance?.comingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
+        const leaveTime = dayAttendance?.leavingTime ? convertTimeStampDate(dayAttendance?.leavingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
+
+        res += `| ${dayHTML}   | ${comingTime} | ${leaveTime} |\n`
+        res += `-------------------------------\n`
+    })
+    res += `</pre>`
+    return res
+}
+
+function getStatsForMonth(employee, totalAttendanceList) {
+    const monthDays = getDaysInMonth(new Date().getMonth(), new Date().getFullYear())
+    const isMonthDay = (comingTime) => {
+        return monthDays.map(day => day.toLocaleDateString()).indexOf(comingTime) !== -1
+    }
+    const userAttendanceList = totalAttendanceList.filter((attendance) => {
+        const comingTime = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString();
+        if (attendance.user.username === employee.username && isMonthDay(comingTime)) {
+            return attendance
+        }
+    })
+    let res = `<pre>`
+    res += `-------------------------------\n`
+    res += `|     Дата    | Пришел | Ушел |\n`
+    res += `-------------------------------\n`
+
+    monthDays.forEach((day) => {
+        let options = { weekday: 'short', day: 'numeric', month: 'numeric' }
+        let dayHTML = capitalizeFirstLetter(day.toLocaleDateString("ru-RU", options).toString())
+
+        const dayAttendance = userAttendanceList.find((attendance) => {
+            let time = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString()
+            if(time === day.toLocaleDateString()) {
+                return attendance
+            }
+        })
+        const comingTime = dayAttendance?.comingTime ? convertTimeStampDate(dayAttendance?.comingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
+        const leaveTime = dayAttendance?.leavingTime ? convertTimeStampDate(dayAttendance?.leavingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
+
+        res += `| ${dayHTML}   | ${comingTime} | ${leaveTime} |\n`
+        res += `-------------------------------\n`
+    })
+    res += `</pre>`
+    return res
 }
 
 export class UserScenesGenerator{
@@ -261,54 +374,22 @@ export class AdminScenesGenerator{
             }
             if (data.action === "statsForToday") {
                 const employee = (await getEmployees()).find((employee => employee.id === data.empId))
-                const attendanceList = await getAttendance()
-                const todayDate = new Date().toLocaleDateString()
-                const todayAttendance = attendanceList.find((attendance) => {
-                    const comingDay = new Date(+attendance.comingTime.seconds * 1000).toLocaleDateString()
-                    if (attendance.user.username === employee.username && comingDay === todayDate) {
-                        return attendance
-                    }
-                })
-                if (todayAttendance) {
-                    const comingTime = new Date((+todayAttendance.comingTime.seconds * 1000)).toLocaleTimeString();
-                    const leaveTime = todayAttendance.leavingTime ? new Date((+todayAttendance.leavingTime.seconds * 1000)).toLocaleTimeString() : '➖';
+                const totalAttendanceList = await getAttendance()
+                const todayStats = getStatsForToday(employee, totalAttendanceList)
 
-                    ctx.replyWithHTML(`<b>Сотрудник:</b> ${todayAttendance.user.username}\n\nПришел: ${comingTime}\n\nУшел: ${leaveTime}`)
-                } else {
-                    ctx.replyWithHTML(`<b>Сотрудник:</b> ${employee.username}\n\nПришел: ➖\n\nУшел: ➖`)
-                }
+                ctx.replyWithHTML(`<b>Сотрудник:</b> ${employee.username}\n\nПришел: ${todayStats.comingTime}\n\nУшел: ${todayStats.leaveTime}`)
             }
             if (data.action === "statsForWeek") {
                 const employee = (await getEmployees()).find((employee => employee.id === data.empId))
-                const weekDays = getWeek()
-                const attendanceList = (await getAttendance()).filter((attendance) => {
-                    const comingTime = new Date((+attendance.comingTime.seconds * 1000)).toLocaleDateString();
-                    if (attendance.user.username === employee.username && weekDays.map(day => day.toLocaleDateString()).indexOf(comingTime) !== -1) {
-                        return attendance
-                    }
-                })
-                let res = `<pre>`
-                res += `-------------------------------\n`
-                res += `| День недели | Пришел | Ушел |\n`
-                res += `-------------------------------\n`
-
-                weekDays.forEach((day) => {
-                    let options = { weekday: 'short', day: 'numeric', month: 'numeric' }
-                    let dayHTML = capitalizeFirstLetter(day.toLocaleDateString("ru-RU", options).toString())
-                    const dayAttendance = attendanceList.find((attendance) => {
-                        let time = new Date(+attendance.comingTime.seconds * 1000).toLocaleDateString()
-                        if(time === day.toLocaleDateString()) {
-                            return attendance
-                        }
-                    })
-                    const comingTime = dayAttendance?.comingTime ? new Date((+dayAttendance?.comingTime?.seconds * 1000)).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
-                    const leaveTime = dayAttendance?.leavingTime ? new Date((+dayAttendance?.leavingTime?.seconds * 1000)).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
-
-                    res += `| ${dayHTML}   | ${comingTime} | ${leaveTime} |\n`
-                    res += `-------------------------------\n`
-                })
-                res += `</pre>`
-                await ctx.replyWithHTML(res)
+                const totalAttendanceList = await getAttendance()
+                const statsForWeek = getStatsForWeek(employee, totalAttendanceList)
+                await ctx.replyWithHTML(statsForWeek)
+            }
+            if (data.action === "statsForMonth") {
+                const employee = (await getEmployees()).find((employee => employee.id === data.empId))
+                const totalAttendanceList = await getAttendance()
+                const statsForMonth = getStatsForMonth(employee, totalAttendanceList)
+                await ctx.replyWithHTML(statsForMonth)
             }
         })
 
