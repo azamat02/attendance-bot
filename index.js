@@ -1,5 +1,5 @@
 import {config} from "dotenv";
-import {Scenes, session, Telegraf} from "telegraf";
+import {Markup, Scenes, session, Telegraf} from "telegraf";
 import {getAdmins, updateAdmin} from "./store/functions.js";
 import {AdminScenesGenerator, UserScenesGenerator} from "./scenes.js";
 
@@ -16,9 +16,10 @@ const addEmployee = adminGen.AddEmployee()
 const showEmployees = adminGen.ShowEmployees()
 const showAdmins = adminGen.ShowAdmins()
 const addAdmin = adminGen.AddAdmin()
+const statsForToday = adminGen.StatsForToday()
 
 const userScenes = [userButtons, markArrival, markLeaving]
-const adminScenes = [startScreen, showAdmins, addAdmin, addEmployee, setOfficeLocation, showEmployees]
+const adminScenes = [startScreen, showAdmins, addAdmin, addEmployee, setOfficeLocation, showEmployees, statsForToday]
 
 const stages = new Scenes.Stage([...adminScenes, ...userScenes])
 
@@ -52,6 +53,29 @@ bot.start(async (ctx) => {
     } else {
         await ctx.replyWithHTML(`Добро пожаловать`)
         await ctx.scene.enter("userButtons")
+    }
+})
+
+
+bot.hears("Статистика посещения за сегодня", async (ctx) => {
+    if (ctx.session.isAdmin) {
+        await ctx.scene.enter("statsForToday")
+    }
+})
+
+bot.hears("Статистика посещения за неделю", async (ctx) => {
+    if (ctx.session.isAdmin) {
+        await ctx.replyWithHTML("Перейдите на сайт", Markup.inlineKeyboard([
+            [Markup.button.url("Перейти на сайт", "https://vacancies-bot.web.app/?type=week")]
+        ]))
+    }
+})
+
+bot.hears("Статистика посещения за месяц", async (ctx) => {
+    if (ctx.session.isAdmin) {
+        await ctx.replyWithHTML("Перейдите на сайт", Markup.inlineKeyboard([
+            [Markup.button.url("Перейти на сайт", "https://vacancies-bot.web.app/?type=month")]
+        ]))
     }
 })
 

@@ -132,8 +132,8 @@ function getStatsForWeek(employee, totalAttendanceList) {
                 return attendance
             }
         })
-        const comingTime = dayAttendance?.comingTime ? convertTimeStampDate(dayAttendance?.comingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
-        const leaveTime = dayAttendance?.leavingTime ? convertTimeStampDate(dayAttendance?.leavingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
+        const comingTime = dayAttendance?.comingTime ? convertTimeStampDate(dayAttendance?.comingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖ ';
+        const leaveTime = dayAttendance?.leavingTime ? convertTimeStampDate(dayAttendance?.leavingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖ ';
 
         res += `| ${dayHTML}   | ${comingTime} | ${leaveTime} |\n`
         res += `-------------------------------\n`
@@ -168,8 +168,8 @@ function getStatsForMonth(employee, totalAttendanceList) {
                 return attendance
             }
         })
-        const comingTime = dayAttendance?.comingTime ? convertTimeStampDate(dayAttendance?.comingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
-        const leaveTime = dayAttendance?.leavingTime ? convertTimeStampDate(dayAttendance?.leavingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖     ';
+        const comingTime = dayAttendance?.comingTime ? convertTimeStampDate(dayAttendance?.comingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖ ';
+        const leaveTime = dayAttendance?.leavingTime ? convertTimeStampDate(dayAttendance?.leavingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖ ';
 
         res += `| ${dayHTML}   | ${comingTime} | ${leaveTime} |\n`
         res += `-------------------------------\n`
@@ -293,6 +293,41 @@ export class UserScenesGenerator{
 }
 
 export class AdminScenesGenerator{
+    StatsForToday() {
+        const statsForToday = new Scenes.BaseScene("statsForToday")
+
+        statsForToday.enter(async (ctx) => {
+            await ctx.reply("Статистика посещения сотрудников за сегодня")
+            const employees = await getEmployees()
+            const totalAttendanceList = await getAttendance()
+            let res = `<pre>`
+            res += `-------------------------------\n`
+            res += `| Сотрудник | Пришел | Ушел |\n`
+            res += `-------------------------------\n`
+            employees.forEach((employee) => {
+                let statForToday = getStatsForToday(employee, totalAttendanceList)
+                let str = `| ${employee.username} | ${statForToday.comingTime} | ${statForToday.leaveTime} |`
+                let length = str.length
+                res += `${str}\n`
+                for (let i = 0; i<=length; i++) {
+                    res += `-`
+                }
+                res += '\n'
+
+            })
+            res += `</pre>`
+            await ctx.replyWithHTML(res, Markup.inlineKeyboard([
+                [Markup.button.url("Перейти на сайт", "https://vacancies-bot.web.app/?type=today")]
+            ]))
+        })
+
+        statsForToday.action("redirect", async (ctx) => {
+
+        })
+
+        return statsForToday
+    }
+
     StartScreen() {
         const startScreen = new Scenes.BaseScene("startScreen")
 
