@@ -95,8 +95,8 @@ function getStatsForToday(employee, totalAttendanceList) {
         leaveTime: "",
     }
     if (todayAttendance) {
-        const comingTime = new Date((+todayAttendance.comingTime.seconds * 1000)).toLocaleTimeString();
-        const leaveTime = todayAttendance.leavingTime ? new Date((+todayAttendance.leavingTime.seconds * 1000)).toLocaleTimeString() : '➖';
+        const comingTime = convertTimeStampDate(todayAttendance.comingTime.seconds).toLocaleTimeString();
+        const leaveTime = todayAttendance.leavingTime ? convertTimeStampDate(todayAttendance.leavingTime.seconds).toLocaleTimeString() : '➖';
         result.comingTime = comingTime
         result.leaveTime = leaveTime
     } else {
