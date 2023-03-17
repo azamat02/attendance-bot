@@ -51,6 +51,17 @@ export async function deleteEmployee(id) {
     await deleteDoc(doc(db, "employees", id));
 }
 
+export async function deleteOfficeZone(id) {
+    await deleteDoc(doc(db, "officeLocation", id));
+}
+
+export async function deletePreviousOffices() {
+    const locations = await getOfficeLocation()
+    for (let i=0; i<locations.length; i++) {
+        await deleteOfficeZone(locations[i].id)
+    }
+}
+
 export async function createOfficeLocation(location) {
     const dbRef = collection(db, "officeLocation");
     await addDoc(dbRef, location).then(docRef => {

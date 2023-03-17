@@ -4,7 +4,7 @@ import {
     createEmployee,
     createOfficeLocation,
     deleteAdmin,
-    deleteEmployee,
+    deleteEmployee, deletePreviousOffices,
     getAdmins,
     getAttendance,
     getEmployees,
@@ -359,6 +359,7 @@ export class AdminScenesGenerator{
 
         setOfficeLocation.on("location", async (ctx) => {
             const { latitude, longitude } = ctx.message.location
+            await deletePreviousOffices()
             await createOfficeLocation({latitude, longitude})
             await ctx.reply("Зона офиса определена ✅")
             await ctx.reply("В последующем при отметки посещения, сотрудник должен находится в радиусе 10 метров с точки где вы определили зону офиса. 📍")
@@ -398,12 +399,16 @@ export class AdminScenesGenerator{
                     [Markup.button.callback("Удалить сотрудника ❌", JSON.stringify({action: "delete", empId: employee.id}))]
                 ]))
             })
+
+            if (employees.length === 0) {
+                await ctx.replyWithHTML("Нету добавленных сотрудников")
+            }
         })
 
         showEmployees.on("callback_query", async (ctx) => {
             const data = JSON.parse(ctx.callbackQuery.data)
             if (data.action === "delete") {
-                await deleteEmployee(data.id)
+                await deleteEmployee(data.empId)
                 await ctx.reply("Сотрудник удален ✅")
                 await ctx.scene.enter("startScreen")
             }
