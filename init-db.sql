@@ -29,3 +29,6 @@ CREATE TABLE officeLocation (
 INSERT INTO officeLocation (latitude, longitude)
 VALUES (0.0, 0.0)
 ON CONFLICT (id) DO UPDATE SET latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude;
+
+INSERT INTO users (fullname, username, position, department, is_admin)
+VALUES ('Azamat Saiduly', 'tolegenv', 'developer', 'CodiTeach Squad', true)
