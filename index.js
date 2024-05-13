@@ -1,6 +1,6 @@
 import {config} from "dotenv";
 import {Markup, Scenes, session, Telegraf} from "telegraf";
-import {getAdmins, updateAdmin} from "./store/functions.js";
+import {isUserAdmin, isUserRegistered} from "./store/functions.js";
 import {AdminScenesGenerator, UserScenesGenerator} from "./scenes.js";
 
 const userGen = new UserScenesGenerator()
@@ -28,7 +28,6 @@ config()
 export const bot = new Telegraf(process.env.BOT_TOKEN)
 bot.use(session(), stages.middleware(), )
 
-
 bot.telegram.setMyCommands([
     {command: "start", description: "Начать работу с ботом"},
     {command: "info", description: "Информация о боте"},
@@ -39,20 +38,18 @@ bot.command("info", async (ctx) => {
 })
 
 bot.start(async (ctx) => {
-    const admins = await getAdmins()
-    admins.forEach(admin => {
-        if (ctx.message.from.username === admin.username) {
-            ctx.session.isAdmin = true
-            updateAdmin({...admin, chat_id: ctx.message.chat.id})
-        }
-    })
-    if (ctx.session.isAdmin) {
+    ctx.session.isAdmin = await isUserAdmin(ctx.message.from.username)
+    const isEmployee = await isUserRegistered(ctx.message.from.username)
+    if (ctx.session.isAdmin && isEmployee) {
         await ctx.replyWithSticker("https://chpic.su/_data/stickers/t/tonevskayaaa/tonevskayaaa_035.webp")
         await ctx.replyWithHTML(`Добро пожаловать <b>${ctx.message.from.username}</b>\nВам предоставлены права администратора.`)
         await ctx.scene.enter("startScreen")
-    } else {
+    }
+    else if (isEmployee) {
         await ctx.replyWithHTML(`Добро пожаловать`)
         await ctx.scene.enter("userButtons")
+    } else {
+        await ctx.replyWithHTML(`Вы не являетесь сотрудником компании`)
     }
 })
 
@@ -85,12 +82,6 @@ bot.hears("Список администраторов", async (ctx) => {
     }
 })
 
-bot.hears("Добавить админа", async (ctx) => {
-    if (ctx.session.isAdmin) {
-        await ctx.scene.enter("addAdmin")
-    }
-})
-
 bot.hears("Список сотрудников", async (ctx) => {
     if (ctx.session.isAdmin) {
         await ctx.scene.enter("showEmployees")
@@ -117,4 +108,6 @@ bot.hears("Я ухожу 👋", async (ctx) => {
     await ctx.scene.enter("markLeaving")
 })
 
-bot.launch()
+bot.launch().then(res => {
+    console.log('BOT STARTED')
+})

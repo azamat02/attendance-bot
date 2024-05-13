@@ -1,38 +1,27 @@
 import {Markup, Scenes} from "telegraf";
 import {
-    createAdmin,
-    createEmployee,
-    createOfficeLocation,
-    deleteAdmin,
-    deleteEmployee, deletePreviousOffices,
-    getAdmins,
-    getAttendance,
-    getEmployees,
+    createUser,
+    deleteUser,
+    getCompleteWeeklyAttendanceByUserId, getMonthlyAttendanceByUserId,
     getOfficeLocation,
+    getTodaysAttendance,
+    getTodaysAttendanceByUserId,
+    getUserAttendanceToday,
+    getUsers,
+    hasUserMarkedAttendanceToday,
+    isUserRegistered,
     markAttendance,
-    markLeavingAttendance
+    markLeavingTime,
+    updateOfficeLocation
 } from "./store/functions.js";
+import moment from "moment";
 
-function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-function isMarkedToday(attendance, from) {
-    let res = {
-        isMarkedToday: false,
-        attendance: []
+// Function to format date-time from database
+function formatTime(dateTime) {
+    if (dateTime) {
+        return moment(dateTime).format('HH:mm')
     }
-    const todayDate = new Date().toLocaleDateString()
-    attendance.forEach(attendance => {
-        if (from.username === attendance.user.username && +from.id === +attendance.user.id) {
-            let comingTime = new Date(+attendance.comingTime.seconds * 1000).toLocaleDateString()
-            if (comingTime === todayDate) {
-                res.isMarkedToday = true
-                res.attendance = attendance
-            }
-        }
-    })
-    return res
+    return ' 🚫'
 }
 
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
@@ -53,129 +42,75 @@ function deg2rad(deg) {
     return deg * (Math.PI/180)
 }
 
-function getWeek() {
-    let curr = new Date; // get current date
-    let first = curr.getDate() - curr.getDay() + 1; // First day is the day of the month - the day of the week
+function getAllDaysOfMonth(year, month) {
+    const dates = [];
+    const date = new Date(year, month, 1);
 
-    let firstWeekDayDate = new Date(curr.setDate(first))
-    let workingWeek = [firstWeekDayDate]
-
-    for (let i = 1; i<5; i++) {
-        let weekDayDate = new Date(curr.setDate(first+i))
-        workingWeek.push(weekDayDate)
-    }
-
-    return workingWeek
-}
-
-function getDaysInMonth(month, year) {
-    let date = new Date(year, month, 1);
-    let days = [];
     while (date.getMonth() === month) {
-        days.push(new Date(date));
-        date.setDate(date.getDate() + 1);
+        dates.push(new Date(date));  // Add a new Date object to the array
+        date.setDate(date.getDate() + 1);  // Increment the day
     }
-    return days;
+
+    return dates;
 }
 
-function convertTimeStampDate(seconds) {
-    return new Date(+seconds * 1000)
+function formatWeekdayAttendance(attendanceRecords) {
+    let response = `<pre>`;
+    response += `-------------------------------\n`;
+    response += `| День недели | Пришел | Ушел |\n`;
+    response += `-------------------------------\n`;
+
+    const daysOfWeekMap = {
+        'Monday': 'Понедельник',
+        'Tuesday': 'Вторник',
+        'Wednesday': 'Среда',
+        'Thursday': 'Четверг',
+        'Friday': 'Пятница',
+        'Saturday': 'Суббота',
+        'Sunday': 'Воскресенье'
+    };
+
+    attendanceRecords.forEach(record => {
+        const dayOfWeek = new Date(record.day).toLocaleDateString('ru-RU', { weekday: 'long' });
+        const dayOfWeekRussian = daysOfWeekMap[dayOfWeek] || dayOfWeek;
+        const arrived = record.comingTime ? formatTime(record.comingTime) : '  ➖  ';
+        const left = record.leavingTime ? formatTime(record.leavingTime) : '  ➖  ';
+        response += `| ${dayOfWeekRussian.padEnd(11)} | ${arrived.padEnd(5)} | ${left.padEnd(5)} |\n`;
+        response += `-------------------------------\n`;
+    });
+
+    response += `</pre>`;
+    return response;
 }
 
-function getStatsForToday(employee, totalAttendanceList) {
-    const todayDate = new Date().toLocaleDateString()
-    const todayAttendance = totalAttendanceList.find((attendance) => {
-        const comingDay = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString()
-        if (attendance.user.username === employee.username && comingDay === todayDate) {
-            return attendance
+function formatAttendanceRecords(attendanceRecords) {
+    const allDays = getAllDaysOfMonth(new Date().getFullYear(), new Date().getMonth());
+    let result = "<pre>";
+    result += "----------------------------------------------------\n";
+    result += "| Дата         | Пришел | Ушел | Количество часов |\n";
+    result += "----------------------------------------------------\n";
+
+    allDays.forEach(day => {
+        const dayStr = day.toISOString().slice(0, 10);
+        const record = attendanceRecords.find(r => {
+            return new Date(r.comingtime).toISOString().slice(0, 10) === dayStr;
+        });
+
+        const date = day.toLocaleDateString('ru-RU');
+        const timeIn = record && record.comingtime ? formatTime(record.comingtime) : '  ➖  ';
+        const timeOut = record && record.leavingtime ? formatTime(record.leavingtime) : '  ➖  ';
+        let totalHours = '  ➖  ';
+        if (record && record.comingtime && record.leavingtime) {
+            const diffMs = new Date(record.leavingtime) - new Date(record.comingtime);
+            totalHours = (diffMs / 3600000).toFixed(2); // Convert milliseconds to hours, rounded to two decimals
         }
-    })
-    let result = {
-        comingTime: "",
-        leaveTime: "",
-    }
-    if (todayAttendance) {
-        const comingTime = convertTimeStampDate(todayAttendance.comingTime.seconds).toLocaleTimeString();
-        const leaveTime = todayAttendance.leavingTime ? convertTimeStampDate(todayAttendance.leavingTime.seconds).toLocaleTimeString() : '➖';
-        result.comingTime = comingTime
-        result.leaveTime = leaveTime
-    } else {
-        result.comingTime = "➖"
-        result.leaveTime = "➖"
-    }
-    return result
-}
 
-function getStatsForWeek(employee, totalAttendanceList) {
-    const weekDays = getWeek()
-    const isWeekDay = (comingTime) => {
-        return weekDays.map(day => day.toLocaleDateString()).indexOf(comingTime) !== -1
-    }
-    const userAttendanceList = totalAttendanceList.filter((attendance) => {
-        const comingTime = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString();
-        if (attendance.user.username === employee.username && isWeekDay(comingTime)) {
-            return attendance
-        }
-    })
-    let res = `<pre>`
-    res += `-------------------------------\n`
-    res += `| День недели | Пришел | Ушел |\n`
-    res += `-------------------------------\n`
+        result += `| ${date.padEnd(12)} | ${timeIn.padEnd(5)} | ${timeOut.padEnd(5)} | ${totalHours.padEnd(5)} |\n`;
+    });
 
-    weekDays.forEach((day) => {
-        let options = { weekday: 'short', day: 'numeric', month: 'numeric' }
-        let dayHTML = capitalizeFirstLetter(day.toLocaleDateString("ru-RU", options).toString())
-
-        const dayAttendance = userAttendanceList.find((attendance) => {
-            let time = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString()
-            if(time === day.toLocaleDateString()) {
-                return attendance
-            }
-        })
-        const comingTime = dayAttendance?.comingTime ? convertTimeStampDate(dayAttendance?.comingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖ ';
-        const leaveTime = dayAttendance?.leavingTime ? convertTimeStampDate(dayAttendance?.leavingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖ ';
-
-        res += `| ${dayHTML}   | ${comingTime} | ${leaveTime} |\n`
-        res += `-------------------------------\n`
-    })
-    res += `</pre>`
-    return res
-}
-
-function getStatsForMonth(employee, totalAttendanceList) {
-    const monthDays = getDaysInMonth(new Date().getMonth(), new Date().getFullYear())
-    const isMonthDay = (comingTime) => {
-        return monthDays.map(day => day.toLocaleDateString()).indexOf(comingTime) !== -1
-    }
-    const userAttendanceList = totalAttendanceList.filter((attendance) => {
-        const comingTime = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString();
-        if (attendance.user.username === employee.username && isMonthDay(comingTime)) {
-            return attendance
-        }
-    })
-    let res = `<pre>`
-    res += `-------------------------------\n`
-    res += `|     Дата    | Пришел | Ушел |\n`
-    res += `-------------------------------\n`
-
-    monthDays.forEach((day) => {
-        let options = { weekday: 'short', day: 'numeric', month: 'numeric' }
-        let dayHTML = capitalizeFirstLetter(day.toLocaleDateString("ru-RU", options).toString())
-
-        const dayAttendance = userAttendanceList.find((attendance) => {
-            let time = convertTimeStampDate(attendance.comingTime.seconds).toLocaleDateString()
-            if(time === day.toLocaleDateString()) {
-                return attendance
-            }
-        })
-        const comingTime = dayAttendance?.comingTime ? convertTimeStampDate(dayAttendance?.comingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖ ';
-        const leaveTime = dayAttendance?.leavingTime ? convertTimeStampDate(dayAttendance?.leavingTime?.seconds).toLocaleTimeString('ru-RU', {hour: "numeric", minute: "numeric"}) : ' ➖ ';
-
-        res += `| ${dayHTML}   | ${comingTime} | ${leaveTime} |\n`
-        res += `-------------------------------\n`
-    })
-    res += `</pre>`
-    return res
+    result += "----------------------------------------------------\n";
+    result += "</pre>";
+    return result;
 }
 
 export class UserScenesGenerator{
@@ -197,18 +132,9 @@ export class UserScenesGenerator{
         const markArrival = new Scenes.BaseScene("markArrival")
 
         markArrival.enter(async (ctx) => {
-            const employees = await getEmployees()
-            let isEmployee = false
-            let emp = {}
-            employees.forEach((employee) => {
-                if (employee.username === ctx.message.from.username) {
-                    isEmployee = true
-                    emp = employee
-                }
-            })
+            let isEmployee = await isUserRegistered(ctx.message.from.username)
 
-            let attendance = await getAttendance()
-            let isMarked = isMarkedToday(attendance, ctx.message.from).isMarkedToday
+            let isMarked = await hasUserMarkedAttendanceToday(ctx.message.from.username)
 
             if (isEmployee) {
                 if (!isMarked) {
@@ -221,22 +147,19 @@ export class UserScenesGenerator{
                     await ctx.scene.enter("userButtons")
                 }
             } else {
-                await ctx.reply("Вы не являетесь сотрудником Сапа")
+                await ctx.reply("Вы не являетесь сотрудником CodiPlay")
                 await ctx.scene.leave()
             }
         })
 
         markArrival.on("location", async (ctx) => {
             const locations = await getOfficeLocation()
-            const officeLatitude = locations[0].latitude
-            const officeLongitude = locations[0].longitude
+            const officeLatitude = locations.latitude
+            const officeLongitude = locations.longitude
             const { latitude, longitude } = ctx.message.location
             let distance = getDistanceFromLatLonInKm(officeLatitude, officeLongitude, latitude, longitude) * 1000
             if (distance <= 10) {
-                await markAttendance({
-                    user: ctx.message.from,
-                    comingTime: new Date()
-                })
+                await markAttendance(ctx.message.from.username)
                 await ctx.reply("Вы отметились ✅")
                 await ctx.scene.enter("userButtons")
 
@@ -253,35 +176,23 @@ export class UserScenesGenerator{
         const markLeaving = new Scenes.BaseScene("markLeaving")
 
         markLeaving.enter(async (ctx) => {
-            const employees = await getEmployees()
-            let isEmployee = false
-            let emp = {}
-            employees.forEach((employee) => {
-                if (employee.username === ctx.message.from.username) {
-                    isEmployee = true
-                    emp = employee
-                }
-            })
+            let isEmployee = await isUserRegistered(ctx.message.from.username)
 
-            let attendance = await getAttendance()
-            let res = isMarkedToday(attendance, ctx.message.from)
+            let userAttendanceToday = await getUserAttendanceToday(ctx.message.from.username)
 
             if (isEmployee) {
-                if (!res.isMarkedToday) {
+                if (userAttendanceToday.length === 0) {
                     await ctx.reply("Вы не отмечались сегодня, сперва отметьте прибытие. ⚠️")
                 }
-                else if (res.attendance?.leavingTime) {
+                else if (userAttendanceToday[0]?.leavingtime) {
                     await ctx.reply("Вы уже отметили уход, спасибо, удачного Вам дня ✅")
                 }
-                else if (res.isMarkedToday) {
-                    await markLeavingAttendance({
-                        ...res.attendance,
-                        leavingTime: new Date()
-                    })
+                else if (userAttendanceToday.length > 0) {
+                    await markLeavingTime(ctx.message.from.username)
                     await ctx.reply("Вы отметили уход, спасибо, удачного Вам дня ✅")
                 }
             } else {
-                await ctx.reply("Вы не являетесь сотрудником Сапа")
+                await ctx.reply("Вы не являетесь сотрудником CodiPlay")
             }
             await ctx.scene.enter("userButtons")
         })
@@ -297,29 +208,27 @@ export class AdminScenesGenerator{
         const statsForToday = new Scenes.BaseScene("statsForToday")
 
         statsForToday.enter(async (ctx) => {
-            await ctx.reply("Статистика посещения сотрудников за сегодня")
-            const employees = await getEmployees()
-            const totalAttendanceList = await getAttendance()
-            let res = `<pre>`
-            res += `-------------------------------\n`
-            res += `| Сотрудник | Пришел | Ушел |\n`
-            res += `-------------------------------\n`
-            employees.forEach((employee) => {
-                let statForToday = getStatsForToday(employee, totalAttendanceList)
-                let str = `| ${employee.username} | ${statForToday.comingTime} | ${statForToday.leaveTime} |`
-                let length = str.length
-                res += `${str}\n`
-                for (let i = 0; i<=length; i++) {
-                    res += `-`
-                }
-                res += '\n'
+            await ctx.reply("Статистика посещения сотрудников за сегодня");
+            const attendanceForToday = await getTodaysAttendance();
 
-            })
-            res += `</pre>`
+            let res = `<pre>`;
+            res += `----------------------------\n`;
+            res += `| Сотрудник | Пришел - Ушел |\n`;
+            res += `----------------------------\n`;
+            attendanceForToday.forEach((attendance) => {
+                // Ensure time formatting handles null values
+                const comingTime = attendance.comingtime ? formatTime(attendance.comingtime) : '➖';
+                const leavingTime = attendance.leavingtime ? formatTime(attendance.leavingtime) : '➖';
+                const name = attendance.fullname.padEnd(15, ' '); // Pad names to ensure alignment
+                res += `| ${name} | 🕒 ${comingTime} - ${leavingTime} |\n`;
+                res += `-------------------------------------\n`;
+            });
+            res += `</pre>`;
+
             await ctx.replyWithHTML(res, Markup.inlineKeyboard([
                 [Markup.button.url("Перейти на сайт", "https://vacancies-bot.web.app/?type=today")]
-            ]))
-        })
+            ]));
+        });
 
         statsForToday.action("redirect", async (ctx) => {
 
@@ -337,8 +246,6 @@ export class AdminScenesGenerator{
                 "Статистика посещения за сегодня",
                 "Статистика посещения за неделю",
                 "Статистика посещения за месяц",
-                "Список администраторов",
-                "Добавить админа",
                 "Список сотрудников",
                 "Добавить сотрудника",
             ])
@@ -359,8 +266,7 @@ export class AdminScenesGenerator{
 
         setOfficeLocation.on("location", async (ctx) => {
             const { latitude, longitude } = ctx.message.location
-            await deletePreviousOffices()
-            await createOfficeLocation({latitude, longitude})
+            await updateOfficeLocation(latitude, longitude)
             await ctx.reply("Зона офиса определена ✅")
             await ctx.reply("В последующем при отметки посещения, сотрудник должен находится в радиусе 10 метров с точки где вы определили зону офиса. 📍")
             await ctx.scene.enter("startScreen")
@@ -370,33 +276,78 @@ export class AdminScenesGenerator{
     }
 
     AddEmployee() {
-        const addEmployee = new Scenes.BaseScene("addEmployee")
+        const addEmployee = new Scenes.BaseScene('addEmployee');
+
         addEmployee.enter(async (ctx) => {
-            await ctx.replyWithPhoto({source: "./assets/example2.png"}, Markup.removeKeyboard())
-            await ctx.reply("Введите <b>username</b> пользователя (без @): ", {parse_mode: "HTML"})
-        })
+            await ctx.replyWithPhoto({ source: "./assets/example2.png" }, Markup.removeKeyboard());
+            await ctx.reply("Введите <b>username</b> пользователя (без @):", { parse_mode: "HTML" });
+            ctx.session.employee = {};  // Initialize the session data store
+        });
+
         addEmployee.on("text", async (ctx) => {
-            let employee = {
-                username: ctx.message.text
+            if (!ctx.session.employee.username) {
+                ctx.session.employee.username = ctx.message.text;
+                await ctx.reply("Введите полное имя сотрудника:");
+                return;  // Wait for the next piece of data
+            } else if (!ctx.session.employee.fullname) {
+                ctx.session.employee.fullname = ctx.message.text;
+                await ctx.reply("Введите должность сотрудника:");
+                return;  // Wait for the next piece of data
+            } else if (!ctx.session.employee.position) {
+                ctx.session.employee.position = ctx.message.text;
+                sendDepartmentButtons(ctx);
+                return;  // Transition to department selection
             }
-            await createEmployee(employee)
-            await ctx.reply("Сотрудник добавлен ✅")
-            await ctx.scene.enter("startScreen")
-        })
-        return addEmployee
+        });
+
+        addEmployee.action(/dept_.+/, async (ctx) => {
+            const department = ctx.match[0].split('_')[1];
+            ctx.session.employee.department = department;
+            sendAdminButtons(ctx);
+        });
+
+        addEmployee.action(/admin_.+/, async (ctx) => {
+            const isAdmin = ctx.match[0].split('_')[1] === 'yes';
+            ctx.session.employee.isAdmin = isAdmin;
+            await createUser(ctx.session.employee);  // Assume createEmployee function saves the employee data
+            await ctx.reply("Сотрудник добавлен ✅");
+            ctx.scene.enter('startScreen');
+        });
+
+        function sendDepartmentButtons(ctx) {
+            const departments = [
+                'Operation Team', 'Sales Team', 'Business Development & PR Team',
+                'Education Development Team', 'Purchasing & Logistics Team', 'CodiPlay Squad', 'CodiTeach Squad'
+            ];  // Example departments
+
+            // Map each department to a button, each button in its own array to ensure it's on a new line
+            const buttons = departments.map(dept => [Markup.button.callback(dept, `dept_${dept.replace(/ & /g, '_').replace(/ /g, '_').toLowerCase()}`)]);
+
+            ctx.reply("Выберите отдел сотрудника:", Markup.inlineKeyboard(buttons));
+        }
+
+        function sendAdminButtons(ctx) {
+            const buttons = [
+                Markup.button.callback('Yes', 'admin_yes'),
+                Markup.button.callback('No', 'admin_no')
+            ];
+            ctx.reply("Является ли сотрудник администратором?", Markup.inlineKeyboard(buttons));
+        }
+
+        return addEmployee;
     }
 
     ShowEmployees() {
         const showEmployees = new Scenes.BaseScene("showEmployees")
 
         showEmployees.enter(async (ctx) => {
-            const employees = await getEmployees()
+            const employees = await getUsers()
             employees.forEach((employee) => {
-                ctx.reply(employee.username, Markup.inlineKeyboard([
-                    [Markup.button.callback("Посещаемость сотрудника за сегодня", JSON.stringify({action: "statsForToday", empId: employee.id}))],
-                    [Markup.button.callback("Посещаемость сотрудника за неделю", JSON.stringify({action: "statsForWeek", empId: employee.id}))],
-                    [Markup.button.callback("Посещаемость сотрудника за месяц", JSON.stringify({action: "statsForMonth", empId: employee.id}))],
-                    [Markup.button.callback("Удалить сотрудника ❌", JSON.stringify({action: "delete", empId: employee.id}))]
+                ctx.reply(`${employee.fullname} | ADMIN ${employee.is_admin ? '✅' : '❌'}`, Markup.inlineKeyboard([
+                    [Markup.button.callback("Посещаемость сотрудника за сегодня", JSON.stringify({action: "statsForToday", empId: employee.id, empName: employee.fullname}))],
+                    [Markup.button.callback("Посещаемость сотрудника за неделю", JSON.stringify({action: "statsForWeek", empId: employee.id, empName: employee.fullname}))],
+                    [Markup.button.callback("Посещаемость сотрудника за месяц", JSON.stringify({action: "statsForMonth", empId: employee.id, empName: employee.fullname}))],
+                    [Markup.button.callback("Удалить сотрудника ❌", JSON.stringify({action: "delete", empId: employee.id, empName: employee.fullname}))]
                 ]))
             })
 
@@ -408,28 +359,34 @@ export class AdminScenesGenerator{
         showEmployees.on("callback_query", async (ctx) => {
             const data = JSON.parse(ctx.callbackQuery.data)
             if (data.action === "delete") {
-                await deleteEmployee(data.empId)
+                await deleteUser(data.empId)
                 await ctx.reply("Сотрудник удален ✅")
                 await ctx.scene.enter("startScreen")
             }
             if (data.action === "statsForToday") {
-                const employee = (await getEmployees()).find((employee => employee.id === data.empId))
-                const totalAttendanceList = await getAttendance()
-                const todayStats = getStatsForToday(employee, totalAttendanceList)
+                const todayStats = await getTodaysAttendanceByUserId(data.empId)
+                const comingTime = todayStats?.comingtime ? formatTime(todayStats.comingtime) : '➖';
+                const leavingTime = todayStats?.leavingtime ? formatTime(todayStats.leavingtime) : '➖';
 
-                ctx.replyWithHTML(`<b>Сотрудник:</b> ${employee.username}\n\nПришел: ${todayStats.comingTime}\n\nУшел: ${todayStats.leaveTime}`)
+                let res = `<pre>`;
+                res += `----------------------------\n`;
+                res += `| Сотрудник | Пришел - Ушел |\n`;
+                res += `----------------------------\n`;
+                res += `| ${data.empName} | 🕒 ${comingTime} - ${leavingTime} |\n`;
+                res += `-------------------------------------\n`;
+                res += `</pre>`;
+
+                ctx.replyWithHTML(res)
             }
             if (data.action === "statsForWeek") {
-                const employee = (await getEmployees()).find((employee => employee.id === data.empId))
-                const totalAttendanceList = await getAttendance()
-                const statsForWeek = getStatsForWeek(employee, totalAttendanceList)
-                await ctx.replyWithHTML(statsForWeek)
+                const weeklyAttendance = await getCompleteWeeklyAttendanceByUserId(data.empId)
+                const renderedData = formatWeekdayAttendance(weeklyAttendance)
+                await ctx.replyWithHTML(renderedData)
             }
             if (data.action === "statsForMonth") {
-                const employee = (await getEmployees()).find((employee => employee.id === data.empId))
-                const totalAttendanceList = await getAttendance()
-                const statsForMonth = getStatsForMonth(employee, totalAttendanceList)
-                await ctx.replyWithHTML(statsForMonth)
+                const attendance = await getMonthlyAttendanceByUserId(data.empId)
+                const renderedData = formatAttendanceRecords(attendance)
+                await ctx.replyWithHTML(renderedData)
             }
         })
 
