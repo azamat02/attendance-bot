@@ -343,11 +343,12 @@ export class AdminScenesGenerator{
         showEmployees.enter(async (ctx) => {
             const employees = await getUsers()
             employees.forEach((employee) => {
+                console.log(employee.fullname)
                 ctx.reply(`${employee.fullname} | ADMIN ${employee.is_admin ? '✅' : '❌'}`, Markup.inlineKeyboard([
-                    [Markup.button.callback("Посещаемость сотрудника за сегодня", JSON.stringify({action: "statsForToday", empId: employee.id, empName: employee.fullname}))],
-                    [Markup.button.callback("Посещаемость сотрудника за неделю", JSON.stringify({action: "statsForWeek", empId: employee.id, empName: employee.fullname}))],
-                    [Markup.button.callback("Посещаемость сотрудника за месяц", JSON.stringify({action: "statsForMonth", empId: employee.id, empName: employee.fullname}))],
-                    [Markup.button.callback("Удалить сотрудника ❌", JSON.stringify({action: "delete", empId: employee.id, empName: employee.fullname}))]
+                    [Markup.button.callback("Посещаемость сотрудника за сегодня", JSON.stringify({action: "SFT", empId: employee.id, empName: employee.fullname}))],
+                    [Markup.button.callback("Посещаемость сотрудника за неделю", JSON.stringify({action: "SFW", empId: employee.id, empName: employee.fullname}))],
+                    [Markup.button.callback("Посещаемость сотрудника за месяц", JSON.stringify({action: "SFM", empId: employee.id, empName: employee.fullname}))],
+                    [Markup.button.callback("Удалить сотрудника ❌", JSON.stringify({action: "D", empId: employee.id, empName: employee.fullname}))]
                 ]))
             })
 
@@ -358,12 +359,12 @@ export class AdminScenesGenerator{
 
         showEmployees.on("callback_query", async (ctx) => {
             const data = JSON.parse(ctx.callbackQuery.data)
-            if (data.action === "delete") {
+            if (data.action === "D") {
                 await deleteUser(data.empId)
                 await ctx.reply("Сотрудник удален ✅")
                 await ctx.scene.enter("startScreen")
             }
-            if (data.action === "statsForToday") {
+            if (data.action === "SFT") {
                 const todayStats = await getTodaysAttendanceByUserId(data.empId)
                 const comingTime = todayStats?.comingtime ? formatTime(todayStats.comingtime) : '➖';
                 const leavingTime = todayStats?.leavingtime ? formatTime(todayStats.leavingtime) : '➖';
@@ -378,12 +379,12 @@ export class AdminScenesGenerator{
 
                 ctx.replyWithHTML(res)
             }
-            if (data.action === "statsForWeek") {
+            if (data.action === "SFW") {
                 const weeklyAttendance = await getCompleteWeeklyAttendanceByUserId(data.empId)
                 const renderedData = formatWeekdayAttendance(weeklyAttendance)
                 await ctx.replyWithHTML(renderedData)
             }
-            if (data.action === "statsForMonth") {
+            if (data.action === "SFM") {
                 const attendance = await getMonthlyAttendanceByUserId(data.empId)
                 const renderedData = formatAttendanceRecords(attendance)
                 await ctx.replyWithHTML(renderedData)
