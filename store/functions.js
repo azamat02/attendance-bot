@@ -267,7 +267,8 @@ export async function getTodaysAttendanceByUserId(userId) {
             id, 
             user_id, 
             comingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as comingTime, 
-            leavingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as leavingTime
+            leavingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as leavingTime,
+            reason
         FROM 
             attendance
         WHERE 
@@ -307,7 +308,8 @@ export async function getCompleteWeeklyAttendanceByUserId(userId) {
             id, 
             user_id, 
             comingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' AS comingTime, 
-            leavingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' AS leavingTime
+            leavingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' AS leavingTime,
+            reason
         FROM 
             attendance
         WHERE 
@@ -358,7 +360,8 @@ export async function getMonthlyAttendanceByUserId(userId) {
             id, 
             user_id, 
             comingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' AS comingTime, 
-            leavingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' AS leavingTime
+            leavingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' AS leavingTime,
+            reason
         FROM 
             attendance
         WHERE 

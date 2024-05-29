@@ -79,9 +79,9 @@ function getAllDaysOfMonth(year, month) {
 
 function formatWeekdayAttendance(attendanceRecords) {
     let response = `<pre>`;
-    response += `-------------------------------\n`;
-    response += `| День недели | Пришел | Ушел |\n`;
-    response += `-------------------------------\n`;
+    response += `-----------------------------------------\n`;
+    response += `| День недели | Пришел | Ушел | Причина |\n`;
+    response += `-----------------------------------------\n`;
 
     const daysOfWeekMap = {
         'Monday': 'Понедельник',
@@ -98,8 +98,9 @@ function formatWeekdayAttendance(attendanceRecords) {
         const dayOfWeekRussian = daysOfWeekMap[dayOfWeek] || dayOfWeek;
         const arrived = record.comingTime ? formatTime(record.comingTime) : '  ➖  ';
         const left = record.leavingTime ? formatTime(record.leavingTime) : '  ➖  ';
-        response += `| ${dayOfWeekRussian.padEnd(11)} | ${arrived.padEnd(5)} | ${left.padEnd(5)} |\n`;
-        response += `-------------------------------\n`;
+        const reason = record.reason ? record.reason.padEnd(15, ' ') : 'В офисе';
+        response += `| ${dayOfWeekRussian.padEnd(11)} | ${arrived.padEnd(5)} | ${left.padEnd(5)} | ${reason} |\n`;
+        response += `-----------------------------------------\n`;
     });
 
     response += `</pre>`;
@@ -109,9 +110,9 @@ function formatWeekdayAttendance(attendanceRecords) {
 function formatAttendanceRecords(attendanceRecords) {
     const allDays = getAllDaysOfMonth(new Date().getFullYear(), new Date().getMonth());
     let result = "<pre>";
-    result += "----------------------------------------------------\n";
-    result += "| Дата         | Пришел | Ушел | Количество часов |\n";
-    result += "----------------------------------------------------\n";
+    result += "-------------------------------------------------------------\n";
+    result += "| Дата         | Пришел | Ушел | Количество часов | Причина |\n";
+    result += "-------------------------------------------------------------\n";
 
     allDays.forEach(day => {
         const dayStr = day.toISOString().slice(0, 10);
@@ -122,13 +123,14 @@ function formatAttendanceRecords(attendanceRecords) {
         const date = day.toLocaleDateString('ru-RU');
         const timeIn = record && record.comingtime ? formatTime(record.comingtime) : '  ➖  ';
         const timeOut = record && record.leavingtime ? formatTime(record.leavingtime) : '  ➖  ';
+        const reason = record.reason ? record.reason.padEnd(15, ' ') : 'В офисе';
         let totalHours = '  ➖  ';
         if (record && record.comingtime && record.leavingtime) {
             const diffMs = new Date(record.leavingtime) - new Date(record.comingtime);
             totalHours = (diffMs / 3600000).toFixed(2); // Convert milliseconds to hours, rounded to two decimals
         }
 
-        result += `| ${date.padEnd(12)} | ${timeIn.padEnd(5)} | ${timeOut.padEnd(5)} | ${totalHours.padEnd(5)} |\n`;
+        result += `| ${date.padEnd(12)} | ${timeIn.padEnd(5)} | ${timeOut.padEnd(5)} | ${totalHours.padEnd(5)} |  ${reason}|\n`;
     });
 
     result += "----------------------------------------------------\n";
@@ -420,11 +422,13 @@ export class AdminScenesGenerator{
                 const leavingTime = todayStats?.leavingtime ? formatTime(todayStats.leavingtime) : '➖';
 
                 let res = `<pre>`;
-                res += `----------------------------\n`;
-                res += `| Сотрудник | Пришел - Ушел |\n`;
-                res += `----------------------------\n`;
-                res += `| ${data.empName} | 🕒 ${comingTime} - ${leavingTime} |\n`;
-                res += `-------------------------------------\n`;
+                const reason = todayStats.reason ? todayStats.reason.padEnd(15, ' ') : 'В офисе';
+
+                res += `----------------------------------------------------\n`;
+                res += `| Сотрудник      | Пришел - Ушел            | Причина         |\n`;
+                res += `----------------------------------------------------\n`;
+                res += `| ${data.empName} | 🕒 ${comingTime} - ${leavingTime} | ${reason} |\n`;
+                res += `----------------------------------------------------\n`;
                 res += `</pre>`;
 
                 ctx.replyWithHTML(res)
