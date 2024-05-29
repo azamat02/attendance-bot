@@ -11,17 +11,6 @@ const pool = new Pool({
     password: 'Azamat2341!',
     port: 5432,
 });
-
-export async function getUsers() {
-    try {
-        const result = await pool.query(`SELECT id, fullname FROM users`);
-        return result.rows;
-    } catch (err) {
-        console.error('Failed to fetch users:', err);
-        throw err;
-    }
-}
-
 export async function isUserAdmin(username) {
     try {
         // Query to select the is_admin column where the username matches
