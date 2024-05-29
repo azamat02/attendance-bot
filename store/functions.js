@@ -197,7 +197,8 @@ export async function getTodaysAttendance() {
                 u.position, 
                 u.department, 
                 a.comingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as comingTime, 
-                a.leavingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as leavingTime
+                a.leavingTime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as leavingTime,
+                a.reason
             FROM 
                 users u
             LEFT JOIN 

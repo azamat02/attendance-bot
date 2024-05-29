@@ -226,22 +226,25 @@ export class AdminScenesGenerator{
             const attendanceForToday = await getTodaysAttendance();
 
             let res = `<pre>`;
-            res += `----------------------------\n`;
-            res += `| Сотрудник | Пришел - Ушел |\n`;
-            res += `----------------------------\n`;
+            res += `----------------------------------------------------\n`;
+            res += `| Сотрудник      | Пришел - Ушел            | Причина         |\n`;
+            res += `----------------------------------------------------\n`;
             attendanceForToday.forEach((attendance) => {
                 // Ensure time formatting handles null values
                 const comingTime = attendance.comingtime ? formatTime(attendance.comingtime) : '➖';
                 const leavingTime = attendance.leavingtime ? formatTime(attendance.leavingtime) : '➖';
                 const name = attendance.fullname.padEnd(15, ' '); // Pad names to ensure alignment
-                res += `| ${name} | 🕒 ${comingTime} - ${leavingTime} |\n`;
-                res += `-------------------------------------\n`;
+                const reason = attendance.reason ? attendance.reason.padEnd(15, ' ') : 'В офисе';
+                res += `| ${name} | 🕒 ${comingTime} - ${leavingTime} | ${reason} |\n`;
+                res += `----------------------------------------------------\n`;
             });
             res += `</pre>`;
 
-            await ctx.replyWithHTML(res, Markup.inlineKeyboard([
-                [Markup.button.url("Перейти на сайт", "https://vacancies-bot.web.app/?type=today")]
-            ]));
+            await ctx.replyWithHTML(res);
+
+            // await ctx.replyWithHTML(res, Markup.inlineKeyboard([
+            //     [Markup.button.url("Перейти на сайт", "https://vacancies-bot.web.app/?type=today")]
+            // ]));
         });
 
         statsForToday.action("redirect", async (ctx) => {
