@@ -123,7 +123,7 @@ function formatAttendanceRecords(attendanceRecords) {
         const date = day.toLocaleDateString('ru-RU');
         const timeIn = record && record.comingtime ? formatTime(record.comingtime) : '  ➖  ';
         const timeOut = record && record.leavingtime ? formatTime(record.leavingtime) : '  ➖  ';
-        const reason = record.reason ? record.reason.padEnd(15, ' ') : 'В офисе';
+        const reason = record && record.reason ? record.reason.padEnd(15, ' ') : 'В офисе';
         let totalHours = '  ➖  ';
         if (record && record.comingtime && record.leavingtime) {
             const diffMs = new Date(record.leavingtime) - new Date(record.comingtime);
