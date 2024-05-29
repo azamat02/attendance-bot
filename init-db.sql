@@ -14,7 +14,7 @@ CREATE TABLE attendance (
     user_id INTEGER NOT NULL,
     comingTime TIMESTAMP NOT NULL,
     leavingTime TIMESTAMP,
-    reason VARCHAR(255),
+    reason TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
