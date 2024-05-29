@@ -158,7 +158,7 @@ export class UserScenesGenerator{
             const officeLongitude = locations.longitude
             const { latitude, longitude } = ctx.message.location
             let distance = getDistanceFromLatLonInKm(officeLatitude, officeLongitude, latitude, longitude) * 1000
-            if (distance <= 10) {
+            if (distance <= 20) {
                 await markAttendance(ctx.message.from.username)
                 await ctx.reply("Вы отметились ✅")
                 await ctx.scene.enter("userButtons")
