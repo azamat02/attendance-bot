@@ -2,12 +2,12 @@ import {Markup, Scenes} from "telegraf";
 import {
     createUser,
     deleteUser,
-    getCompleteWeeklyAttendanceByUserId, getMonthlyAttendanceByUserId,
+    getCompleteWeeklyAttendanceByUserId, getMonthlyAttendance, getMonthlyAttendanceByUserId,
     getOfficeLocation,
     getTodaysAttendance,
     getTodaysAttendanceByUserId,
     getUserAttendanceToday,
-    getUsers,
+    getUsers, getWeeklyAttendance,
     hasUserMarkedAttendanceToday,
     isUserRegistered,
     markAttendance,
@@ -23,6 +23,53 @@ function formatTime(dateTime) {
         return moment(dateTime).format('HH:mm')
     }
     return ' 🚫'
+}
+
+
+export async function generateWeeklyAttendanceExcel() {
+    const attendanceForWeek = await getWeeklyAttendance();
+
+    const data = attendanceForWeek.map((attendance) => ({
+        "Сотрудник": attendance.fullname,
+        'Дата': moment(attendance.comingtime).format('YYYY-MM-DD'),
+        'День недели': moment(attendance.comingtime).format('dddd'),
+        'Пришел': formatTime(attendance.comingtime),
+        'Ушел': formatTime(attendance.leavingtime),
+        'Причина': attendance.reason ? attendance.reason : 'В офисе'
+    }));
+
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+
+    const filePath = `attendance_week_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    xlsx.writeFile(workbook, filePath);
+
+    console.log(`Weekly attendance report saved to ${filePath}`);
+    return filePath;
+}
+
+export async function generateMonthlyAttendanceExcel() {
+    const attendanceForMonth = await getMonthlyAttendance();
+
+    const data = attendanceForMonth.map((attendance) => ({
+        "Сотрудник": attendance.fullname,
+        'Дата': moment(attendance.comingtime).format('YYYY-MM-DD'),
+        'День недели': moment(attendance.comingtime).format('dddd'),
+        'Пришел': formatTime(attendance.comingtime),
+        'Ушел': formatTime(attendance.leavingtime),
+        'Причина': attendance.reason ? attendance.reason : 'В офисе'
+    }));
+
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+
+    const filePath = `attendance_month_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    xlsx.writeFile(workbook, filePath);
+
+    console.log(`Monthly attendance report saved to ${filePath}`);
+    return filePath;
 }
 
 async function generateTodaysAttendanceExcel() {

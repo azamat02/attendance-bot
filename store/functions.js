@@ -378,3 +378,35 @@ export async function getMonthlyAttendanceByUserId(userId) {
         throw err;
     }
 }
+
+export async function getWeeklyAttendance() {
+    try {
+        const result = await pool.query(`
+            SELECT users.fullname, attendance.comingtime, attendance.leavingtime, attendance.reason
+            FROM attendance
+            JOIN users ON attendance.user_id = users.id
+            WHERE DATE(attendance.comingtime) >= DATE_TRUNC('week', CURRENT_DATE)
+              AND DATE(attendance.comingtime) < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '1 week';
+        `);
+        return result.rows;
+    } catch (err) {
+        console.error('Failed to fetch weekly attendance:', err);
+        throw err;
+    }
+}
+
+export async function getMonthlyAttendance() {
+    try {
+        const result = await pool.query(`
+            SELECT users.fullname, attendance.comingtime, attendance.leavingtime, attendance.reason
+            FROM attendance
+            JOIN users ON attendance.user_id = users.id
+            WHERE DATE(attendance.comingtime) >= DATE_TRUNC('month', CURRENT_DATE)
+              AND DATE(attendance.comingtime) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month';
+        `);
+        return result.rows;
+    } catch (err) {
+        console.error('Failed to fetch monthly attendance:', err);
+        throw err;
+    }
+}
