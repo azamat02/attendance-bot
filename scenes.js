@@ -15,6 +15,7 @@ import {
     updateOfficeLocation
 } from "./store/functions.js";
 import moment from "moment";
+import * as xlsx from "xlsx";
 
 // Function to format date-time from database
 function formatTime(dateTime) {
@@ -23,6 +24,28 @@ function formatTime(dateTime) {
     }
     return ' 🚫'
 }
+
+async function generateTodaysAttendanceExcel() {
+    const attendanceForToday = await getTodaysAttendance();
+
+    const data = attendanceForToday.map((attendance) => ({
+        "Сотрудник": attendance.fullname,
+        'Пришел': formatTime(attendance.comingtime),
+        'Ушел': formatTime(attendance.leavingtime),
+        'Причина': attendance.reason ? attendance.reason : 'В офисе'
+    }));
+
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    const workbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+
+    const filePath = `attendance_today_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    xlsx.writeFile(workbook, filePath);
+
+    console.log(`Attendance report saved to ${filePath}`);
+    return filePath;
+}
+
 
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
     let R = 6371; // Radius of the earth in km
@@ -241,6 +264,14 @@ export class AdminScenesGenerator{
             res += `</pre>`;
 
             await ctx.replyWithHTML(res);
+
+            try {
+                const filePath = await generateTodaysAttendanceExcel();
+                await ctx.replyWithDocument({ source: filePath, filename: `attendance_today_${new Date().toISOString().slice(0, 10)}.xlsx` });
+            } catch (err) {
+                console.error('Error generating Excel file:', err);
+                await ctx.reply('Ошибка при генерации отчета. Пожалуйста, попробуйте позже.');
+            }
 
             // await ctx.replyWithHTML(res, Markup.inlineKeyboard([
             //     [Markup.button.url("Перейти на сайт", "https://vacancies-bot.web.app/?type=today")]
