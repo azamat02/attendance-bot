@@ -37,7 +37,7 @@ function getDatesInRange(startDate, endDate) {
     return dates;
 }
 
-export async function generateAttendanceExcel(period) {
+async function generateAttendanceExcel(period) {
     const users = await getUsers();
     let attendanceData = [];
     let startDate, endDate, filePath;
@@ -55,22 +55,21 @@ export async function generateAttendanceExcel(period) {
     }
 
     const dates = getDatesInRange(startDate, endDate);
-    const data = [['Дата']];
+    const data = [['Дата', 'День недели']];
 
     users.forEach(user => {
-        data[0].push(`${user.fullname} - Пришел`, `${user.fullname} - Ушел`, `${user.fullname} - Причина`);
+        data[0].push(user.fullname);
     });
 
     dates.forEach(date => {
-        const row = [date.format('YYYY-MM-DD')];
+        const row = [date.format('YYYY-MM-DD'), date.format('dddd')];
 
         users.forEach(user => {
             const attendance = attendanceData.find(att => att.id === user.id && moment(att.comingtime).isSame(date, 'day'));
-            row.push(
-                attendance ? formatTime(attendance.comingtime) : '🚫',
-                attendance ? formatTime(attendance.leavingtime) : '🚫',
-                attendance ? attendance.reason || 'В офисе' : '🚫'
-            );
+            const cell = attendance
+                ? `${formatTime(attendance.comingtime)} - ${formatTime(attendance.leavingtime)} | ${attendance.reason || 'В офисе'}`
+                : '🚫';
+            row.push(cell);
         });
 
         data.push(row);
