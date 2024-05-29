@@ -133,13 +133,13 @@ export class UserScenesGenerator{
 
         markArrival.enter(async (ctx) => {
             let isEmployee = await isUserRegistered(ctx.message.from.username)
-
             let isMarked = await hasUserMarkedAttendanceToday(ctx.message.from.username)
 
             if (isEmployee) {
                 if (!isMarked) {
-                    await ctx.reply("Вы сегодня не отмечались, отправьте свое местоположение для проверки: ", Markup.keyboard([
-                        Markup.button.locationRequest("Отправить местоположение")
+                    await ctx.reply("Вы сегодня не отмечались, отправьте свое местоположение для проверки или укажите, что вы не в офисе: ", Markup.keyboard([
+                        Markup.button.locationRequest("Отправить местоположение"),
+                        Markup.button.text("Я не в офисе")
                     ]).resize().oneTime())
                 }
                 if (isMarked) {
@@ -162,10 +162,24 @@ export class UserScenesGenerator{
                 await markAttendance(ctx.message.from.username)
                 await ctx.reply("Вы отметились ✅")
                 await ctx.scene.enter("userButtons")
-
             } else {
                 await ctx.reply("Вы далеко от офиса, повторите попытку когда будете в офисе 📍")
                 await ctx.scene.enter("userButtons")
+            }
+        })
+
+        markArrival.hears("Я не в офисе", async (ctx) => {
+            await ctx.reply("Пожалуйста, укажите причину отсутствия:")
+            ctx.session.awaitingReason = true
+        })
+
+        markArrival.on("text", async (ctx) => {
+            if (ctx.session.awaitingReason) {
+                const reason = ctx.message.text
+                await markAttendance(ctx.message.from.username, reason)
+                await ctx.reply(`Вы отметились с причиной: ${reason} ✅`)
+                await ctx.scene.enter("userButtons")
+                ctx.session.awaitingReason = false
             }
         })
 

@@ -81,7 +81,7 @@ export async function hasUserMarkedAttendanceToday(username) {
     }
 }
 
-export async function markAttendance(username) {
+export async function markAttendance(username, reason = null) {
     try {
         // Start a transaction to ensure data consistency
         await pool.query('BEGIN');
@@ -93,11 +93,15 @@ export async function markAttendance(username) {
         }
         const userId = userRes.rows[0].id;
 
-        // Insert a new attendance record for today
-        const attendanceRes = await pool.query('INSERT INTO attendance (user_id, comingTime) VALUES ($1, NOW())', [userId]);
+        // Insert a new attendance record for today with or without a reason
+        if (reason) {
+            await pool.query('INSERT INTO attendance (user_id, comingTime, reason) VALUES ($1, NOW(), $2)', [userId, reason]);
+        } else {
+            await pool.query('INSERT INTO attendance (user_id, comingTime) VALUES ($1, NOW())', [userId]);
+        }
 
         // Commit the transaction
-        await pool.query('END');
+        await pool.query('COMMIT');
 
         return true;
     } catch (err) {
