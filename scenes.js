@@ -37,7 +37,7 @@ function getDatesInRange(startDate, endDate) {
     return dates;
 }
 
-async function generateAttendanceExcel(period) {
+export async function generateAttendanceExcel(period) {
     const users = await getUsers();
     let attendanceData = [];
     let startDate, endDate, filePath;
