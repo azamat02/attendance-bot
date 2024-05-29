@@ -1,12 +1,7 @@
 import {config} from "dotenv";
-import {Markup, Scenes, session, Telegraf} from "telegraf";
+import {Scenes, session, Telegraf} from "telegraf";
 import {isUserAdmin, isUserRegistered} from "./store/functions.js";
-import {
-    AdminScenesGenerator,
-    generateMonthlyAttendanceExcel,
-    generateWeeklyAttendanceExcel,
-    UserScenesGenerator
-} from "./scenes.js";
+import {AdminScenesGenerator, generateAttendanceExcel, UserScenesGenerator} from "./scenes.js";
 
 const userGen = new UserScenesGenerator()
 const adminGen = new AdminScenesGenerator()
@@ -70,7 +65,7 @@ bot.hears("Статистика посещения за неделю", async (ct
         await ctx.reply("Статистика посещения сотрудников за текущую неделю");
 
         try {
-            const filePath = await generateWeeklyAttendanceExcel();
+            const filePath = await generateAttendanceExcel('week');
             await ctx.replyWithDocument({ source: filePath, filename: `attendance_week_${new Date().toISOString().slice(0, 10)}.xlsx` });
         } catch (err) {
             console.error('Error generating Excel file:', err);
@@ -84,7 +79,7 @@ bot.hears("Статистика посещения за месяц", async (ctx)
         await ctx.reply("Статистика посещения сотрудников за текущий месяц");
 
         try {
-            const filePath = await generateMonthlyAttendanceExcel();
+            const filePath = await generateAttendanceExcel('month');
             await ctx.replyWithDocument({ source: filePath, filename: `attendance_month_${new Date().toISOString().slice(0, 10)}.xlsx` });
         } catch (err) {
             console.error('Error generating Excel file:', err);

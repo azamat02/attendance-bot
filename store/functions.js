@@ -12,6 +12,16 @@ const pool = new Pool({
     port: 5432,
 });
 
+export async function getUsers() {
+    try {
+        const result = await pool.query(`SELECT id, fullname FROM users`);
+        return result.rows;
+    } catch (err) {
+        console.error('Failed to fetch users:', err);
+        throw err;
+    }
+}
+
 export async function isUserAdmin(username) {
     try {
         // Query to select the is_admin column where the username matches
@@ -382,7 +392,7 @@ export async function getMonthlyAttendanceByUserId(userId) {
 export async function getWeeklyAttendance() {
     try {
         const result = await pool.query(`
-            SELECT users.fullname, attendance.comingtime, attendance.leavingtime, attendance.reason
+            SELECT users.id, users.fullname, attendance.comingtime, attendance.leavingtime, attendance.reason
             FROM attendance
             JOIN users ON attendance.user_id = users.id
             WHERE DATE(attendance.comingtime) >= DATE_TRUNC('week', CURRENT_DATE)
@@ -398,7 +408,7 @@ export async function getWeeklyAttendance() {
 export async function getMonthlyAttendance() {
     try {
         const result = await pool.query(`
-            SELECT users.fullname, attendance.comingtime, attendance.leavingtime, attendance.reason
+            SELECT users.id, users.fullname, attendance.comingtime, attendance.leavingtime, attendance.reason
             FROM attendance
             JOIN users ON attendance.user_id = users.id
             WHERE DATE(attendance.comingtime) >= DATE_TRUNC('month', CURRENT_DATE)

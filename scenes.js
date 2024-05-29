@@ -25,50 +25,64 @@ function formatTime(dateTime) {
     return ' 🚫'
 }
 
+function getDatesInRange(startDate, endDate) {
+    const dates = [];
+    let currentDate = startDate.clone();
 
-export async function generateWeeklyAttendanceExcel() {
-    const attendanceForWeek = await getWeeklyAttendance();
+    while (currentDate.isBefore(endDate) || currentDate.isSame(endDate, 'day')) {
+        dates.push(currentDate.clone());
+        currentDate.add(1, 'days');
+    }
 
-    const data = attendanceForWeek.map((attendance) => ({
-        "Сотрудник": attendance.fullname,
-        'Дата': moment(attendance.comingtime).format('YYYY-MM-DD'),
-        'День недели': moment(attendance.comingtime).format('dddd'),
-        'Пришел': formatTime(attendance.comingtime),
-        'Ушел': formatTime(attendance.leavingtime),
-        'Причина': attendance.reason ? attendance.reason : 'В офисе'
-    }));
-
-    const worksheet = xlsx.utils.json_to_sheet(data);
-    const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Attendance');
-
-    const filePath = `attendance_week_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    xlsx.writeFile(workbook, filePath);
-
-    console.log(`Weekly attendance report saved to ${filePath}`);
-    return filePath;
+    return dates;
 }
 
-export async function generateMonthlyAttendanceExcel() {
-    const attendanceForMonth = await getMonthlyAttendance();
+export async function generateAttendanceExcel(period) {
+    const users = await getUsers();
+    let attendanceData = [];
+    let startDate, endDate, filePath;
 
-    const data = attendanceForMonth.map((attendance) => ({
-        "Сотрудник": attendance.fullname,
-        'Дата': moment(attendance.comingtime).format('YYYY-MM-DD'),
-        'День недели': moment(attendance.comingtime).format('dddd'),
-        'Пришел': formatTime(attendance.comingtime),
-        'Ушел': formatTime(attendance.leavingtime),
-        'Причина': attendance.reason ? attendance.reason : 'В офисе'
-    }));
+    if (period === 'week') {
+        attendanceData = await getWeeklyAttendance();
+        startDate = moment().startOf('week');
+        endDate = moment().endOf('week');
+        filePath = `attendance_week_${moment().format('YYYY-MM-DD')}.xlsx`;
+    } else if (period === 'month') {
+        attendanceData = await getMonthlyAttendance();
+        startDate = moment().startOf('month');
+        endDate = moment().endOf('month');
+        filePath = `attendance_month_${moment().format('YYYY-MM-DD')}.xlsx`;
+    }
 
-    const worksheet = xlsx.utils.json_to_sheet(data);
+    const dates = getDatesInRange(startDate, endDate);
+    const data = [['Дата']];
+
+    users.forEach(user => {
+        data[0].push(`${user.fullname} - Пришел`, `${user.fullname} - Ушел`, `${user.fullname} - Причина`);
+    });
+
+    dates.forEach(date => {
+        const row = [date.format('YYYY-MM-DD')];
+
+        users.forEach(user => {
+            const attendance = attendanceData.find(att => att.id === user.id && moment(att.comingtime).isSame(date, 'day'));
+            row.push(
+                attendance ? formatTime(attendance.comingtime) : '🚫',
+                attendance ? formatTime(attendance.leavingtime) : '🚫',
+                attendance ? attendance.reason || 'В офисе' : '🚫'
+            );
+        });
+
+        data.push(row);
+    });
+
+    const worksheet = xlsx.utils.aoa_to_sheet(data);
     const workbook = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(workbook, worksheet, 'Attendance');
 
-    const filePath = `attendance_month_${new Date().toISOString().slice(0, 10)}.xlsx`;
     xlsx.writeFile(workbook, filePath);
 
-    console.log(`Monthly attendance report saved to ${filePath}`);
+    console.log(`Attendance report saved to ${filePath}`);
     return filePath;
 }
 
@@ -92,7 +106,6 @@ async function generateTodaysAttendanceExcel() {
     console.log(`Attendance report saved to ${filePath}`);
     return filePath;
 }
-
 
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
     let R = 6371; // Radius of the earth in km
