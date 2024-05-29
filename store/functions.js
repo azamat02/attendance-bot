@@ -381,7 +381,7 @@ export async function getMonthlyAttendanceByUserId(userId) {
 export async function getWeeklyAttendance() {
     try {
         const result = await pool.query(`
-            SELECT users.id, users.fullname, attendance.comingtime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty', attendance.leavingtime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty', attendance.reason
+            SELECT users.id, users.fullname, attendance.comingtime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as comingtime, attendance.leavingtime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as leavingtime, attendance.reason
             FROM attendance
             JOIN users ON attendance.user_id = users.id
             WHERE DATE(attendance.comingtime) >= DATE_TRUNC('week', CURRENT_DATE)
@@ -397,7 +397,7 @@ export async function getWeeklyAttendance() {
 export async function getMonthlyAttendance() {
     try {
         const result = await pool.query(`
-            SELECT users.id, users.fullname, attendance.comingtime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty', attendance.leavingtime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty', attendance.reason
+            SELECT users.id, users.fullname, attendance.comingtime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as comingtime, attendance.leavingtime AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as leavingtime, attendance.reason
             FROM attendance
             JOIN users ON attendance.user_id = users.id
             WHERE DATE(attendance.comingtime) >= DATE_TRUNC('month', CURRENT_DATE)
